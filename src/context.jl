@@ -63,9 +63,17 @@ const ctx = Cassette.disablehooks(Ctx(pass = GPUifyPass))
 ###
 Cassette.overdub(::Ctx, ::typeof(Core.kwfunc), f) = return Core.kwfunc(f)
 
+# the functions below are marked `@pure` and by rewritting them we hide that from
+# inference so we leave them alone (see https://github.com/jrevels/Cassette.jl/issues/108).
+@inline Cassette.overdub(::Ctx, ::typeof(Base.isimmutable), x) = return Base.isimmutable(x)
+@inline Cassette.overdub(::Ctx, ::typeof(Base.isstructtype), t) = return Base.isstructtype(t)
+@inline Cassette.overdub(::Ctx, ::typeof(Base.isprimitivetype), t) = return Base.isprimitivetype(t)
+@inline Cassette.overdub(::Ctx, ::typeof(Base.isbitstype), t) = return Base.isbitstype(t)
+@inline Cassette.overdub(::Ctx, ::typeof(Base.isbits), x) = return Base.isbits(x)
+
 @init @require CUDAnative="be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin
     using .CUDAnative
-    Cassette.overdub(::Ctx, ::typeof(CUDAnative.datatype_align), ::Type{T}) where {T} = CUDAnative.datatype_align(T)
+    @inline Cassette.overdub(::Ctx, ::typeof(CUDAnative.datatype_align), ::Type{T}) where {T} = CUDAnative.datatype_align(T)
 end
 
 ###
