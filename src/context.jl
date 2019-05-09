@@ -5,7 +5,6 @@
 #
 # TODO:
 # - error (erf, ...)
-# - pow
 # - min, max
 # - mod, rem
 # - gamma
@@ -61,7 +60,8 @@ const ctx = Cassette.disablehooks(Ctx(pass = GPUifyPass))
 ###
 # Cassette fixes
 ###
-Cassette.overdub(::Ctx, ::typeof(Core.kwfunc), f) = return Core.kwfunc(f)
+@inline Cassette.overdub(::Ctx, ::typeof(Core.kwfunc), f) = return Core.kwfunc(f)
+@inline Cassette.overdub(::Ctx, ::typeof(Core.apply_type), args...) = return Core.apply_type(args...)
 
 # the functions below are marked `@pure` and by rewritting them we hide that from
 # inference so we leave them alone (see https://github.com/jrevels/Cassette.jl/issues/108).
@@ -70,6 +70,7 @@ Cassette.overdub(::Ctx, ::typeof(Core.kwfunc), f) = return Core.kwfunc(f)
 @inline Cassette.overdub(::Ctx, ::typeof(Base.isprimitivetype), t) = return Base.isprimitivetype(t)
 @inline Cassette.overdub(::Ctx, ::typeof(Base.isbitstype), t) = return Base.isbitstype(t)
 @inline Cassette.overdub(::Ctx, ::typeof(Base.isbits), x) = return Base.isbits(x)
+@inline Cassette.overdub(::Ctx, ::typeof(StaticArrays.Size), x::Type{<:AbstractArray{<:Any, N}}) where {N} = return StaticArrays.Size(x)
 
 @init @require CUDAnative="be33ccc6-a3ff-5ff2-a52e-74243cff1e17" begin
     using .CUDAnative
@@ -106,6 +107,11 @@ end
 @inline Cassette.overdub(ctx::Ctx, ::typeof(+), a::T, b::T) where T<:Union{Float32, Float64} = add_float_contract(a, b)
 @inline Cassette.overdub(ctx::Ctx, ::typeof(-), a::T, b::T) where T<:Union{Float32, Float64} = sub_float_contract(a, b)
 @inline Cassette.overdub(ctx::Ctx, ::typeof(*), a::T, b::T) where T<:Union{Float32, Float64} = mul_float_contract(a, b)
+@inline Cassette.overdub(ctx::Ctx, ::typeof(^), x::Float64, y::Float64) = CUDAnative.pow(x, y)
+@inline Cassette.overdub(ctx::Ctx, ::typeof(^), x::Float32, y::Float32) = CUDAnative.pow(x, y)
+@inline Cassette.overdub(ctx::Ctx, ::typeof(^), x::Float64, y::Int32)   = CUDAnative.pow(x, y)
+@inline Cassette.overdub(ctx::Ctx, ::typeof(^), x::Float32, y::Int32)   = CUDAnative.pow(x, y)
+@inline Cassette.overdub(ctx::Ctx, ::typeof(^), x::Union{Float32, Float64}, y::Int64) = CUDAnative.pow(x, y)
 
 # libdevice.jl
 const cudafuns = (:cos, :cospi, :sin, :sinpi, :tan,
